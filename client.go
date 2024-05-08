@@ -1,9 +1,10 @@
 package eazy_http
 
 import (
-	"github.com/cloudwego/hertz/pkg/app/client"
 	"net/http"
 	"net/url"
+
+	"github.com/cloudwego/hertz/pkg/app/client"
 )
 
 type Client struct {
@@ -50,7 +51,6 @@ func (c *Client) SetQueryParamsFromValues(params url.Values) *Client {
 }
 
 func (c *Client) SetQueryString(query string) *Client {
-
 	return c
 }
 

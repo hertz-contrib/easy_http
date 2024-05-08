@@ -2,10 +2,11 @@ package eazy_http
 
 import (
 	"context"
-	"github.com/cloudwego/hertz/pkg/common/config"
-	"github.com/cloudwego/hertz/pkg/protocol"
 	"net/http"
 	"net/url"
+
+	"github.com/cloudwego/hertz/pkg/common/config"
+	"github.com/cloudwego/hertz/pkg/protocol"
 )
 
 type Request struct {
