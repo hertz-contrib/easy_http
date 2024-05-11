@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package eazy_http
+package easy_http
 
 import (
 	"context"
