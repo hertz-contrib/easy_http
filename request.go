@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/cloudwego/hertz/pkg/common/config"
 	"github.com/cloudwego/hertz/pkg/protocol"
@@ -37,6 +38,7 @@ type Request struct {
 	FileParams     map[string]string
 	BodyParams     interface{}
 	RawRequest     *protocol.Request
+	Time           time.Time
 	Ctx            context.Context
 	RequestOptions []config.RequestOption
 	Result         interface{}

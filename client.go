@@ -17,8 +17,12 @@
 package easy_http
 
 import (
+	"context"
+	"github.com/cloudwego/hertz/pkg/protocol"
 	"net/http"
 	"net/url"
+	"sync"
+	"time"
 
 	"github.com/cloudwego/hertz/pkg/app/client"
 )
@@ -29,17 +33,19 @@ type Client struct {
 	Header     http.Header
 	Cookies    []*http.Cookie
 
+	beforeRequest       []RequestMiddleware
+	udBeforeRequest     []RequestMiddleware
+	afterResponse       []ResponseMiddleware
+	afterResponseLock   *sync.RWMutex
+	udBeforeRequestLock *sync.RWMutex
+
 	client *client.Client
 }
 
-func New() *Client {
-	c, _ := client.NewClient()
-	return &Client{client: c}
-}
-
-func NewWithHertzClient(c *client.Client) *Client {
-	return createClient(c)
-}
+type (
+	RequestMiddleware  func(*Client, *Request) error
+	ResponseMiddleware func(*Client, *Response) error
+)
 
 func createClient(c *client.Client) *Client {
 	return &Client{client: c}
@@ -67,6 +73,7 @@ func (c *Client) SetQueryParamsFromValues(params url.Values) *Client {
 }
 
 func (c *Client) SetQueryString(query string) *Client {
+	// todo: parse query string
 	return c
 }
 
@@ -106,6 +113,15 @@ func (c *Client) SetHeaders(headers map[string]string) *Client {
 	return c
 }
 
+func (c *Client) SetHeaderMultiValues(headers map[string][]string) *Client {
+	for k, header := range headers {
+		for _, v := range header {
+			c.Header.Set(k, v)
+		}
+	}
+	return c
+}
+
 func (c *Client) AddHeader(header, value string) *Client {
 	c.Header.Add(header, value)
 	return c
@@ -115,6 +131,46 @@ func (c *Client) AddHeaders(headers map[string]string) *Client {
 	for k, v := range headers {
 		c.Header.Add(k, v)
 	}
+	return c
+}
+
+func (c *Client) AddHeaderMultiValues(headers map[string][]string) *Client {
+	for k, header := range headers {
+		for _, v := range header {
+			c.Header.Add(k, v)
+		}
+	}
+	return c
+}
+
+func (c *Client) SetContentType(contentType string) *Client {
+	c.Header.Set("Content-Type", contentType)
+	return c
+}
+
+func (c *Client) SetJSONContentType() *Client {
+	c.Header.Set("Content-Type", "application/json")
+	return c
+}
+
+func (c *Client) SetXMLContentType() *Client {
+	c.Header.Set("Content-Type", "application/xml")
+	return c
+}
+
+func (c *Client) SetHTMLContentType() *Client {
+	c.Header.Set("Content-Type", "text/html")
+	return c
+}
+
+func (c *Client) SetFormContentType() *Client {
+	c.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	return c
+
+}
+
+func (c *Client) SetXFormData() *Client {
+	c.Header.Set("Content-Type", "multipart/form-data")
 	return c
 }
 
@@ -142,4 +198,61 @@ func (c *Client) R() *Request {
 
 func (c *Client) NewRequest() *Request {
 	return c.R()
+}
+
+func (c *Client) execute(req *Request) (*Response, error) {
+	// Lock the user-defined pre-request hooks.
+	c.udBeforeRequestLock.RLock()
+	defer c.udBeforeRequestLock.RUnlock()
+
+	// Lock the post-request hooks.
+	c.afterResponseLock.RLock()
+	defer c.afterResponseLock.RUnlock()
+
+	// Apply Request middleware
+	var err error
+
+	// user defined on before request methods
+	// to modify the *resty.Request object
+	for _, f := range c.udBeforeRequest {
+		if err = f(c, req); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, f := range c.beforeRequest {
+		if err = f(c, req); err != nil {
+			return nil, err
+		}
+	}
+
+	if hostHeader := req.Header.Get("Host"); hostHeader != "" {
+		req.RawRequest.SetHost(hostHeader)
+	}
+
+	req.Time = time.Now()
+
+	resp := &protocol.Response{}
+	err = c.client.Do(context.Background(), req.RawRequest, resp)
+
+	response := &Response{
+		Request:     req,
+		RawResponse: resp,
+	}
+
+	if err != nil {
+		response.receiveAt = time.Now()
+		return response, err
+	}
+
+	response.receiveAt = time.Now()
+
+	// Apply Response middleware
+	for _, f := range c.afterResponse {
+		if err = f(c, response); err != nil {
+			break
+		}
+	}
+
+	return response, err
 }
