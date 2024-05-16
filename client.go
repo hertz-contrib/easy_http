@@ -18,13 +18,11 @@ package easy_http
 
 import (
 	"context"
+	"github.com/cloudwego/hertz/pkg/app/client"
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"net/http"
 	"net/url"
 	"sync"
-	"time"
-
-	"github.com/cloudwego/hertz/pkg/app/client"
 )
 
 type Client struct {
@@ -230,8 +228,6 @@ func (c *Client) execute(req *Request) (*Response, error) {
 		req.RawRequest.SetHost(hostHeader)
 	}
 
-	req.Time = time.Now()
-
 	resp := &protocol.Response{}
 	err = c.client.Do(context.Background(), req.RawRequest, resp)
 
@@ -241,11 +237,8 @@ func (c *Client) execute(req *Request) (*Response, error) {
 	}
 
 	if err != nil {
-		response.receiveAt = time.Now()
 		return response, err
 	}
-
-	response.receiveAt = time.Now()
 
 	// Apply Response middleware
 	for _, f := range c.afterResponse {

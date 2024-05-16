@@ -17,33 +17,30 @@
 package easy_http
 
 import (
+	"bytes"
 	"github.com/cloudwego/hertz/pkg/protocol"
+	"io"
+	"net/http"
 	"strings"
-	"time"
 )
 
 type Response struct {
 	Request     *Request // 上面的 Request 结构体
 	RawResponse *protocol.Response
-
-	receiveAt time.Time
-
-	bodyByte []byte
-	size     int64
 }
 
 func (r *Response) Body() []byte {
 	if r.RawResponse == nil {
 		return []byte{}
 	}
-	return r.bodyByte
+	return r.RawResponse.Body()
 }
 
 func (r *Response) BodyString() string {
 	if r.RawResponse == nil {
 		return ""
 	}
-	return strings.TrimSpace(string(r.bodyByte))
+	return strings.TrimSpace(string(r.RawResponse.Body()))
 }
 
 func (r *Response) StatusCode() int {
@@ -61,23 +58,48 @@ func (r *Response) Error() interface{} {
 	return r.Request.Error
 }
 
-// todo
-//func (r *Response) Header() http.Header {
-//	if r.RawResponse == nil {
-//		return http.Header{}
-//	}
-//	return r.RawResponse.Header.GetHeaders()
-//}
-//
-//func (r *Response) Cookies() []*http.Cookie {
-//	if r.RawResponse == nil {
-//		return make([]*http.Cookie, 0)
-//	}
-//	return r.RawResponse.Header.GetCookies()
-//}
-//func (r *Response) ToRawHTTPResponse() string {
-//	return r.RawResponse.String()
-//}
+func (r *Response) Header() http.Header {
+	if r.RawResponse == nil {
+		return http.Header{}
+	}
+	header := make(http.Header)
+	r.RawResponse.Header.VisitAll(func(key, value []byte) {
+		keyStr := string(key)
+		values := header[keyStr]
+		values = append(values, string(value))
+		header[keyStr] = values
+	})
+	return header
+}
+
+func (r *Response) Cookies() []*http.Cookie {
+	if r.RawResponse == nil {
+		return make([]*http.Cookie, 0)
+	}
+	var cookies []*http.Cookie
+	r.RawResponse.Header.VisitAllCookie(func(key, value []byte) {
+		cookies = append(cookies, &http.Cookie{
+			Name:  string(key),
+			Value: string(value),
+		})
+	})
+
+	return cookies
+}
+func (r *Response) ToRawHTTPResponse() string {
+	resp := &http.Response{
+		StatusCode: r.StatusCode(),
+		Header:     r.Header(),
+		Body:       io.NopCloser(bytes.NewReader(r.Body())),
+	}
+	for _, cookie := range r.Cookies() {
+		resp.Header.Add("Set-Cookie", cookie.String())
+	}
+	var buffer bytes.Buffer
+	resp.Write(&buffer)
+
+	return buffer.String()
+}
 
 func (r *Response) IsSuccess() bool {
 	return r.StatusCode() > 199 && r.StatusCode() < 300
