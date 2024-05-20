@@ -26,14 +26,14 @@ import (
 
 type Request struct {
 	client         *Client
-	Url            string
+	URL            string
 	Method         string
 	QueryParam     url.Values
 	Header         http.Header
 	Cookies        []*http.Cookie
 	PathParams     map[string]string
-	FormParams     map[string]string
-	FileParams     map[string]string
+	FormData       map[string]string
+	FileData       map[string]string
 	BodyParams     interface{}
 	RawRequest     *protocol.Request
 	Ctx            context.Context
@@ -65,7 +65,6 @@ const (
 	MethodOptions = "OPTIONS"
 )
 
-
 func (r *Request) Get(url string) (*Response, error) {
 	return r.Execute(MethodGet, url)
 }
@@ -95,16 +94,19 @@ func (r *Request) Patch(url string) (*Response, error) {
 }
 
 func (r *Request) Send() (*Response, error) {
-	return r.Execute(r.Method, r.Url)
+	return r.Execute(r.Method, r.URL)
 }
 
 func (r *Request) Execute(method, url string) (*Response, error) {
 	r.Method = method
-	r.Url = url
+
+	r.RawRequest.SetRequestURI(url)
 	res := &Response{
-		Request: r,
+		Request:     r,
 		RawResponse: &protocol.Response{},
 	}
-	err :=r.client.client.Do(context.Background(),r.RawRequest,res.RawResponse)
-	return res,err	
+
+	var err error
+	res, err = r.client.execute(r)
+	return res, err
 }

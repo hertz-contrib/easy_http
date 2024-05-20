@@ -20,7 +20,7 @@ import "github.com/cloudwego/hertz/pkg/app/client"
 
 func New() (*Client, error) {
 	c, err := client.NewClient()
-	return &Client{client: c}, err
+	return createClient(c), err
 }
 
 func MustNew() *Client {
@@ -28,7 +28,7 @@ func MustNew() *Client {
 	if err != nil {
 		panic(err)
 	}
-	return &Client{client: c}
+	return createClient(c)
 }
 
 func NewWithHertzClient(c *client.Client) *Client {

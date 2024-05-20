@@ -22,11 +22,13 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sync"
 )
 
 type Client struct {
 	QueryParam url.Values
+	FormData   map[string]string
 	PathParams map[string]string
 	Header     http.Header
 	Cookies    []*http.Cookie
@@ -45,8 +47,49 @@ type (
 	ResponseMiddleware func(*Client, *Response) error
 )
 
-func createClient(c *client.Client) *Client {
-	return &Client{client: c}
+var (
+	hdrUserAgentKey       = http.CanonicalHeaderKey("User-Agent")
+	hdrAcceptKey          = http.CanonicalHeaderKey("Accept")
+	hdrContentTypeKey     = http.CanonicalHeaderKey("Content-Type")
+	hdrContentLengthKey   = http.CanonicalHeaderKey("Content-Length")
+	hdrContentEncodingKey = http.CanonicalHeaderKey("Content-Encoding")
+	hdrLocationKey        = http.CanonicalHeaderKey("Location")
+	hdrAuthorizationKey   = http.CanonicalHeaderKey("Authorization")
+	hdrWwwAuthenticateKey = http.CanonicalHeaderKey("WWW-Authenticate")
+
+	plainTextType       = "text/plain; charset=utf-8"
+	jsonContentType     = "application/json"
+	formContentType     = "application/x-www-form-urlencoded"
+	formDataContentType = "multipart/form-data"
+
+	jsonCheck = regexp.MustCompile(`(?i:(application|text)/(.*json.*)(;|$))`)
+	xmlCheck  = regexp.MustCompile(`(?i:(application|text)/(.*xml.*)(;|$))`)
+)
+
+func createClient(cc *client.Client) *Client {
+	c := &Client{
+		QueryParam: url.Values{},
+		PathParams: make(map[string]string),
+		Header:     http.Header{},
+		Cookies:    make([]*http.Cookie, 0),
+
+		udBeforeRequestLock: &sync.RWMutex{},
+		afterResponseLock:   &sync.RWMutex{},
+
+		client: cc,
+	}
+
+	c.beforeRequest = []RequestMiddleware{
+		parseRequestURL,
+		parseRequestHeader,
+		parseRequestBody,
+	}
+
+	c.udBeforeRequest = []RequestMiddleware{}
+
+	c.afterResponse = []ResponseMiddleware{}
+
+	return c
 }
 
 func (c *Client) SetQueryParam(param, value string) *Client {
@@ -114,7 +157,7 @@ func (c *Client) SetHeaders(headers map[string]string) *Client {
 func (c *Client) SetHeaderMultiValues(headers map[string][]string) *Client {
 	for k, header := range headers {
 		for _, v := range header {
-			c.Header.Set(k, v)
+			c.Header.Add(k, v)
 		}
 	}
 	return c
@@ -188,6 +231,7 @@ func (c *Client) R() *Request {
 		Header:     http.Header{},
 		Cookies:    make([]*http.Cookie, 0),
 		PathParams: map[string]string{},
+		RawRequest: &protocol.Request{},
 
 		client: c,
 	}
