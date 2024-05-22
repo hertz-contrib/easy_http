@@ -36,7 +36,6 @@ type Request struct {
 	QueryParam     url.Values
 	FormData       url.Values
 	Header         http.Header
-	Cookies        []*http.Cookie
 	PathParams     map[string]string
 	FileData       map[string]string
 	BodyParams     interface{}
@@ -45,8 +44,8 @@ type Request struct {
 	RequestOptions []config.RequestOption
 	Result         interface{}
 	Error          interface{}
-	isMultiPart         bool
-	multipartFiles      []*File
+	isMultiPart    bool
+	multipartFiles []*File
 }
 
 const (
@@ -71,11 +70,13 @@ const (
 	// MethodOptions HTTP method
 	MethodOptions = "OPTIONS"
 )
+
 type File struct {
 	Name      string
 	ParamName string
 	io.Reader
 }
+
 func (r *Request) SetQueryParam(param, value string) *Request {
 	r.QueryParam.Set(param, value)
 	return r
@@ -103,17 +104,17 @@ func (r *Request) SetQueryString(query string) *Request {
 			}
 		}
 	} else {
-		fmt.Printf("%v",err)
+		fmt.Printf("%v", err)
 	}
 	return r
 }
-func (r * Request) AddQueryParam(params,value string)*Request{
-	r.QueryParam.Add(params,value)
+func (r *Request) AddQueryParam(params, value string) *Request {
+	r.QueryParam.Add(params, value)
 	return r
 }
-func (r *Request) AddQueryParams(params map[string]string)*Request{
-	for k,v :=range params{
-		r.AddQueryParam(k,v)
+func (r *Request) AddQueryParams(params map[string]string) *Request {
+	for k, v := range params {
+		r.AddQueryParam(k, v)
 	}
 	return r
 }
@@ -146,50 +147,54 @@ func (r *Request) SetHeaderMultiValues(headers map[string][]string) *Request {
 	}
 	return r
 }
-func (r * Request) AddHeader(header , value string)*Request{
-	r.Header.Add(header,value)
+func (r *Request) AddHeader(header, value string) *Request {
+	r.Header.Add(header, value)
 	return r
 }
-func (r *Request) AddHeaders(headers map[string]string)*Request{
-	for k , v :=range headers{
-		r.AddHeader(k,v)
+func (r *Request) AddHeaders(headers map[string]string) *Request {
+	for k, v := range headers {
+		r.AddHeader(k, v)
 	}
 	return r
 }
-func (r *Request)AddHeaderMultiValues(headers map[string][]string)*Request{
-	for key ,value := range headers{
-		r.AddHeader(key,strings.Join(value,", "))
-	}	
+func (r *Request) AddHeaderMultiValues(headers map[string][]string) *Request {
+	for key, value := range headers {
+		r.AddHeader(key, strings.Join(value, ", "))
+	}
 	return r
 }
+
 // [] SetContentType(contentType string)
 // [] SetJSONContentType() （可添加一些常用的 content-type）
 func (r *Request) SetCookie(hc *http.Cookie) *Request {
-	r.Cookies = append(r.Cookies, hc)
+	r.RawRequest.SetCookie(hc.Name, hc.Value)
 	return r
 }
 func (r *Request) SetCookies(rs []*http.Cookie) *Request {
-	r.Cookies = append(r.Cookies, rs...)
+	for _, c := range rs {
+		r.RawRequest.SetCookie(c.Name, c.Value)
+	}
 	return r
 }
+
 // [] SetJSONBody(body interface{}) (自动注入 json content-type，参数可以是 strcut、map、[]byte、string 等)
 // [] SetUrlEncodeBody(body url.Value) (自动注入 urlencode content-type)
 func (r *Request) SetBody(body interface{}) *Request {
-	r.BodyParams= body
+	r.BodyParams = body
 	return r
 }
 func (r *Request) SetFormData(data map[string]string) *Request {
-	for k ,v :=range data{
-		r.FormData.Set(k,v)
+	for k, v := range data {
+		r.FormData.Set(k, v)
 	}
 	return r
 }
 func (r *Request) SetFormDataFromValues(data url.Values) *Request {
-	for key ,value := range data{
-		for _,v :=range value{
-			r.FormData.Add(key,v)
+	for key, value := range data {
+		for _, v := range value {
+			r.FormData.Add(key, v)
 		}
-	}	
+	}
 	return r
 }
 func (r *Request) SetFiles(files map[string]string) *Request {
@@ -212,33 +217,34 @@ func (r *Request) SetFileReader(param, fileName string, reader io.Reader) *Reque
 func (r *Request) SetResult(res interface{}) *Request {
 	if res != nil {
 		vv := reflect.ValueOf(res)
-		if vv.Kind() == reflect.Ptr{
+		if vv.Kind() == reflect.Ptr {
 			r.Result = res
-		}else {
+		} else {
 			r.Result = reflect.New(vv.Type()).Interface()
 		}
 	}
 	return r
 }
+
 // [] WithContext(ctx)
 // [] WithDC(dc)
 // [] WithCluster(cluster)
 // [] WithEnv(env)
 // [] WIthCallTimeout(t)
-func (r * Request)WithContext(ctx context.Context)*Request{
+func (r *Request) WithContext(ctx context.Context) *Request {
 	r.Ctx = ctx
 	return r
 }
-func (r * Request)WithDC()*Request{
+func (r *Request) WithDC() *Request {
 	return r
 }
-func (r * Request)WithCluster()*Request{
+func (r *Request) WithCluster() *Request {
 	return r
 }
-func (r * Request)WithEnv()*Request{
+func (r *Request) WithEnv() *Request {
 	return r
 }
-func (r * Request)WIthCallTimeout()*Request{
+func (r *Request) WIthCallTimeout() *Request {
 	return r
 }
 func (r *Request) Get(url string) (*Response, error) {
@@ -286,4 +292,3 @@ func (r *Request) Execute(method, url string) (*Response, error) {
 	res, err = r.client.execute(r)
 	return res, err
 }
-

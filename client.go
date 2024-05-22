@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"sync"
 )
 
@@ -114,7 +115,14 @@ func (c *Client) SetQueryParamsFromValues(params url.Values) *Client {
 }
 
 func (c *Client) SetQueryString(query string) *Client {
-	// todo: parse query string
+	str := strings.Split(query, "&")
+	for _, v := range str {
+		kv := strings.Split(v, "=")
+		if len(kv) == 2 {
+			c.QueryParam.Set(kv[0], kv[1])
+		}
+
+	}
 	return c
 }
 
@@ -229,7 +237,6 @@ func (c *Client) R() *Request {
 	r := &Request{
 		QueryParam: url.Values{},
 		Header:     http.Header{},
-		Cookies:    make([]*http.Cookie, 0),
 		PathParams: map[string]string{},
 		RawRequest: &protocol.Request{},
 
