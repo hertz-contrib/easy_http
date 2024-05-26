@@ -22,7 +22,6 @@ import (
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"sync"
 )
@@ -49,22 +48,12 @@ type (
 )
 
 var (
-	hdrUserAgentKey       = http.CanonicalHeaderKey("User-Agent")
-	hdrAcceptKey          = http.CanonicalHeaderKey("Accept")
-	hdrContentTypeKey     = http.CanonicalHeaderKey("Content-Type")
-	hdrContentLengthKey   = http.CanonicalHeaderKey("Content-Length")
-	hdrContentEncodingKey = http.CanonicalHeaderKey("Content-Encoding")
-	hdrLocationKey        = http.CanonicalHeaderKey("Location")
-	hdrAuthorizationKey   = http.CanonicalHeaderKey("Authorization")
-	hdrWwwAuthenticateKey = http.CanonicalHeaderKey("WWW-Authenticate")
+	hdrContentTypeKey = http.CanonicalHeaderKey("Content-Type")
 
 	plainTextType       = "text/plain; charset=utf-8"
 	jsonContentType     = "application/json"
 	formContentType     = "application/x-www-form-urlencoded"
 	formDataContentType = "multipart/form-data"
-
-	jsonCheck = regexp.MustCompile(`(?i:(application|text)/(.*json.*)(;|$))`)
-	xmlCheck  = regexp.MustCompile(`(?i:(application|text)/(.*xml.*)(;|$))`)
 )
 
 func createClient(cc *client.Client) *Client {
@@ -218,7 +207,7 @@ func (c *Client) SetFormContentType() *Client {
 
 }
 
-func (c *Client) SetXFormData() *Client {
+func (c *Client) SetFormData() *Client {
 	c.Header.Set("Content-Type", "multipart/form-data")
 	return c
 }

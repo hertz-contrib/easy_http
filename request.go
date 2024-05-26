@@ -164,8 +164,6 @@ func (r *Request) AddHeaderMultiValues(headers map[string][]string) *Request {
 	return r
 }
 
-// [] SetContentType(contentType string)
-// [] SetJSONContentType() （可添加一些常用的 content-type）
 func (r *Request) SetCookie(hc *http.Cookie) *Request {
 	r.RawRequest.SetCookie(hc.Name, hc.Value)
 	return r
@@ -177,8 +175,6 @@ func (r *Request) SetCookies(rs []*http.Cookie) *Request {
 	return r
 }
 
-// [] SetJSONBody(body interface{}) (自动注入 json content-type，参数可以是 strcut、map、[]byte、string 等)
-// [] SetUrlEncodeBody(body url.Value) (自动注入 urlencode content-type)
 func (r *Request) SetBody(body interface{}) *Request {
 	r.BodyParams = body
 	return r
@@ -226,16 +222,12 @@ func (r *Request) SetResult(res interface{}) *Request {
 	return r
 }
 
-// [] WithContext(ctx)
-// [] WithDC(dc)
-// [] WithCluster(cluster)
-// [] WithEnv(env)
-// [] WIthCallTimeout(t)
 func (r *Request) WithContext(ctx context.Context) *Request {
 	r.Ctx = ctx
 	return r
 }
-func (r *Request) WithDC() *Request {
+func (r *Request) WithDC(ctx context.Context) *Request {
+
 	return r
 }
 func (r *Request) WithCluster() *Request {
