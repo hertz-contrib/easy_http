@@ -45,7 +45,6 @@ type Request struct {
 	Result         interface{}
 	Error          interface{}
 	isMultiPart    bool
-	multipartFiles []*File
 }
 
 const (
@@ -205,12 +204,7 @@ func (r *Request) SetFiles(files map[string]string) *Request {
 }
 
 func (r *Request) SetFileReader(param, fileName string, reader io.Reader) *Request {
-	r.isMultiPart = true
-	r.multipartFiles = append(r.multipartFiles, &File{
-		Name:      fileName,
-		ParamName: param,
-		Reader:    reader,
-	})
+	r.RawRequest.SetFileReader(param, fileName, reader)
 	return r
 }
 func (r *Request) SetResult(res interface{}) *Request {
