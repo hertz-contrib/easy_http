@@ -18,12 +18,14 @@ package easy_http
 
 import (
 	"context"
-	"fmt"
+	"github.com/cloudwego/hertz/pkg/app/client/discovery"
+	"github.com/cloudwego/hertz/pkg/app/middlewares/client/sd"
 	"io"
 	"net/http"
 	"net/url"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/cloudwego/hertz/pkg/common/config"
 	"github.com/cloudwego/hertz/pkg/protocol"
@@ -37,8 +39,6 @@ type Request struct {
 	FormData       url.Values
 	Header         http.Header
 	PathParams     map[string]string
-	FileData       map[string]string
-	BodyParams     interface{}
 	RawRequest     *protocol.Request
 	Ctx            context.Context
 	RequestOptions []config.RequestOption
@@ -96,16 +96,7 @@ func (r *Request) SetQueryParamsFromValues(params url.Values) *Request {
 	return r
 }
 func (r *Request) SetQueryString(query string) *Request {
-	params, err := url.ParseQuery(strings.TrimSpace(query))
-	if err == nil {
-		for p, v := range params {
-			for _, pv := range v {
-				r.QueryParam.Add(p, pv)
-			}
-		}
-	} else {
-		fmt.Printf("%v", err)
-	}
+	r.RawRequest.SetQueryString(query)
 	return r
 }
 func (r *Request) AddQueryParam(params, value string) *Request {
@@ -176,7 +167,19 @@ func (r *Request) SetCookies(rs []*http.Cookie) *Request {
 }
 
 func (r *Request) SetBody(body interface{}) *Request {
-	r.BodyParams = body
+	t := reflect.Indirect(reflect.ValueOf(body)).Type().Kind()
+
+	switch t {
+	case reflect.String:
+		r.RawRequest.SetBodyString(body.(string))
+	case reflect.TypeOf([]byte{}).Kind():
+		r.RawRequest.SetBody(body.([]byte))
+	case reflect.TypeOf(io.Reader(nil)).Kind():
+		r.RawRequest.SetBodyStream(body.(io.Reader), -1)
+	default:
+		panic("unsupported body type")
+	}
+
 	return r
 }
 func (r *Request) SetFormData(data map[string]string) *Request {
@@ -226,8 +229,55 @@ func (r *Request) WithContext(ctx context.Context) *Request {
 	r.Ctx = ctx
 	return r
 }
-func (r *Request) WithDC(ctx context.Context) *Request {
 
+const (
+	defaultNetwork = "tcp"
+)
+
+type customizedResolver struct {
+	Address string
+}
+
+var _ discovery.Resolver = (*customizedResolver)(nil)
+
+// NewResolver create a service resolver.
+func NewResolver(address string) discovery.Resolver {
+	return &customizedResolver{
+		Address: address,
+	}
+}
+
+// Target return a description for the given target that is suitable for being a key for cache.
+func (c *customizedResolver) Target(_ context.Context, target *discovery.TargetInfo) (description string) {
+	return target.Host
+}
+
+// Name returns the name of the resolver.
+func (c *customizedResolver) Name() string {
+	return "easy_http"
+}
+
+// Resolve a service info by desc.
+func (c *customizedResolver) Resolve(_ context.Context, desc string) (discovery.Result, error) {
+	var eps []discovery.Instance
+
+	tags := map[string]string{}
+	eps = append(eps, discovery.NewInstance(
+		defaultNetwork,
+		c.Address,
+		1,
+		tags,
+	))
+
+	return discovery.Result{
+		CacheKey:  desc,
+		Instances: eps,
+	}, nil
+}
+
+func (r *Request) WithDC(dc string) *Request {
+	resolver := NewResolver(dc)
+	r.client.client.Use(sd.Discovery(resolver))
 	return r
 }
 func (r *Request) WithCluster() *Request {
@@ -236,7 +286,8 @@ func (r *Request) WithCluster() *Request {
 func (r *Request) WithEnv() *Request {
 	return r
 }
-func (r *Request) WIthCallTimeout() *Request {
+func (r *Request) WIthCallTimeout(t time.Duration) *Request {
+	r.RawRequest.SetOptions(config.WithDialTimeout(t))
 	return r
 }
 func (r *Request) Get(url string) (*Response, error) {
