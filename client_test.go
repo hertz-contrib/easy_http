@@ -6,7 +6,7 @@ import (
 )
 
 func TestSetQueryParam(t *testing.T) {
-	c := MustNew()
+	c := MustNewClient(&Option{})
 	c.SetQueryParam("test1", "test1")
 	c.SetQueryParams(map[string]string{"test2": "test2", "test3": "test3"})
 	c.SetQueryParamsFromValues(map[string][]string{"test4": {"test41", "test42"}})
